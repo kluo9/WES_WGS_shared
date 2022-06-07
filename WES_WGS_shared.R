@@ -54,8 +54,6 @@ EM <- function(para, cn, cs) {
   factor
 }
 
-eval(parse(text=args[1])) # chr
-
 chr_data <- readRDS(paste0("/home/bulllab/kluo/ASP/processed_data/WGS_joint_called_maf_QC_annotation/chr",chr,"_variants_ensembl.rds"))
 bi_snp <- chr_data$bi_snp
 
