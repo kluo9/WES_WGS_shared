@@ -2,8 +2,6 @@
 ############  read WGS data set
 ############
 
-args=(commandArgs(TRUE))
-print(args)
 library(logistf)
 
 EM <- function(para, cn, cs) {
@@ -54,28 +52,31 @@ EM <- function(para, cn, cs) {
   factor
 }
 
-chr_data <- readRDS(paste0("/home/bulllab/kluo/ASP/processed_data/WGS_joint_called_maf_QC_annotation/chr",chr,"_variants_ensembl.rds"))
-bi_snp <- chr_data$bi_snp
-
-rm(chr_data)
+wgs_shared_data <- readRDS("/Volumes/Kexin/ASP/previous_doc/wgs_shared_filtered.rds")
 
 ############   filter on quality and missingness
 ############
 
-bi_snp$het <- 1*(bi_snp$HET==bi_snp$NCALLED)
-bi_snp$homo <- 1*(bi_snp$HOM.REF==bi_snp$NCALLED | bi_snp$HOM.VAR==bi_snp$NCALLED)
-bi_snp <- bi_snp[bi_snp$het!=1,]
-bi_snp <- bi_snp[bi_snp$homo!=1,]
-bi_snp <- bi_snp[bi_snp$missing10!=1,]
-bi_snp <- bi_snp[bi_snp$QD_f!=1,]
+wgs_shared_data$het <- 1*(wgs_shared_data$HET==wgs_shared_data$NCALLED)
+wgs_shared_data$homo <- 1*(wgs_shared_data$HOM.REF==wgs_shared_data$NCALLED | wgs_shared_data$HOM.VAR==wgs_shared_data$NCALLED)
+wgs_shared_data <- wgs_shared_data[wgs_shared_data$het!=1,]
+wgs_shared_data <- wgs_shared_data[wgs_shared_data$homo!=1,]
+wgs_shared_data <- wgs_shared_data[wgs_shared_data$missing10!=1,]
+wgs_shared_data <- wgs_shared_data[wgs_shared_data$QD_f!=1,]
 
-bi_snp$minor_allele_count <- NA
-bi_snp$minor_allele_count[bi_snp$ALT==bi_snp$minor_allele] <- bi_snp$HET[bi_snp$ALT==bi_snp$minor_allele]+2*bi_snp$'HOM.VAR'[bi_snp$ALT==bi_snp$minor_allele]  
-bi_snp$minor_allele_count[bi_snp$REF==bi_snp$minor_allele] <- bi_snp$HET[bi_snp$REF==bi_snp$minor_allele]+2*bi_snp$'HOM.REF'[bi_snp$REF==bi_snp$minor_allele]  
+wgs_shared_data$minor_allele_count <- NA
+wgs_shared_data$minor_allele_count[wgs_shared_data$ALT==wgs_shared_data$minor_allele] <- wgs_shared_data$HET[wgs_shared_data$ALT==wgs_shared_data$minor_allele]+2*wgs_shared_data$'HOM.VAR'[wgs_shared_data$ALT==wgs_shared_data$minor_allele]  
+wgs_shared_data$minor_allele_count[wgs_shared_data$REF==wgs_shared_data$minor_allele] <- wgs_shared_data$HET[wgs_shared_data$REF==wgs_shared_data$minor_allele]+2*wgs_shared_data$'HOM.REF'[wgs_shared_data$REF==wgs_shared_data$minor_allele]  
 
+############   prs 
+############
+prs_all <-  readRDS("/Volumes/Kexin/ASP/PRS/Mavaddat/data/WGS_prs.rds")
+
+chr = 22
+wgs_shared_data_chr = wgs_shared_data[wgs_shared_data$CHROM==chr,]
 ############   IBD info
 ############  
-ibd <-  read.table("/home/bulllab/kluo/ASP/KING/code/no_maf/no_maf_all_chr.segments",header = T)
+ibd <-  read.table("/Volumes/Kexin/ASP/KING/IBD/no_maf_all_chr.segments",header = T)
 ibd_f2_sis <- ibd [ibd$Chr==chr, ]
 rm(ibd)
 if (chr>=10){
@@ -89,22 +90,17 @@ ibd_f2_sis$Startbp <- substr(ibd_f2_sis$Startbp,1,(nchar(ibd_f2_sis$Startbp)-4))
 ibd_f2_sis$Stopbp <- substring(ibd_f2_sis$StopSNP,d)
 ibd_f2_sis$Stopbp <- substr(ibd_f2_sis$Stopbp,1,(nchar(ibd_f2_sis$Stopbp)-4))
 
-############   prs 
-############
-prs_all <- readRDS("/home/bulllab/kluo/ASP/LZtest/WGS_prs.rds")
-
 ############   look at gene level:
 ############  
-genelist <- unique(bi_snp$gene_symbol)
+genelist <- unique(wgs_shared_data_chr$gene_symbol)
 genelist <- unique(unlist(strsplit(genelist,';')))
 genelist <- genelist[genelist!='NA']
 
 out <- data.frame()
-# gene='LOC101928626'
 # sink(paste0("/home/bulllab/kluo/ASP/LZtest/results/LZ_WGS_chr",chr,".txt"))
 
 for (gene in genelist){
-  region <- bi_snp[which(!is.na(unlist(lapply(strsplit(bi_snp$gene_symbol,';'),match,x=gene)))),]
+  region <- wgs_shared_data_chr[which(!is.na(unlist(lapply(strsplit(wgs_shared_data_chr$gene_symbol,';'),match,x=gene)))),]
   ### mark rare variants by maf < 0.001
   rare_var_indi <- which(region$maf<0.001 & region$maf>0 & region$minor_allele_count<7)
   rare_var <- region[rare_var_indi,]
@@ -553,4 +549,4 @@ for (gene in genelist){
 colnames(out) <- c('p1','p2','LZ_Z','LZ_p','n_case','n_control','n_case1','n_control1','ELZ_Z_only_Z','ELZ_Z_only_p',
                    'ELZ_Z','ELZ_p','lm_ELZ_Z_only_Z','lm_ELZ_Z_only_p','firth_Z_p','firth_Z_prs_p',
                    'MP_ELZ_Z','MP_ELZ_p','MP_ELZ_N_p','MP_ELZ_N_Z','gene','n_gene','n_rare_var')
-saveRDS(out,paste0("/home/bulllab/kluo/ASP/LZtest/result_case_control/WGS_gene_case_control_EM_MP_chr",chr,".rds"))
+saveRDS(out,paste0("/Volumes/Kexin/ASP/TRAFIC/WES_WGS_shared/results/WGS_WES_shared_chr",chr,".rds"))
